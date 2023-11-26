@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id          Int        @id @default(autoincrement())
+  username    String     @unique @db.VarChar(50)
+  password    String     @db.VarChar(100)
+  fullName    String     @db.VarChar(50)
+  gender      String     @default("OTHER") @db.VarChar(10)
+  dateOfBirth String     @default("1900-01-01") @db.VarChar(10)
+  authorization String  @default("member") @db.VarChar(10)
+  refreshToken  String  @default("")  @db.VarChar(200)
+  createdAt   DateTime   @default(dbgenerated("NOW()")) @db.DateTime
+  updatedAt   DateTime   @default(dbgenerated("NOW() ON UPDATE NOW()")) @db.DateTime
+  schedules   Schedule[] @relation("SchedulesToMember")
+  logs        Log[]      @relation("LogsToMember")
+  boards      Board[]   @relation("BoardsToMember")
+  boardAnswers BoardAnswer[] @relation("BoardAnswersToMember")
+}
+
+model Schedule {
+  id             Int        @id @default(autoincrement())
+  name           String     @db.VarChar(21)
+  parentId       Int?
+  memberUsername String     @db.VarChar(50)
+  depth          Int        @default(1)
+  createdAt      DateTime   @default(dbgenerated("NOW()")) @db.DateTime
+  updatedAt      DateTime   @default(dbgenerated("NOW() ON UPDATE NOW()")) @db.DateTime
+  units          Unit[]     @relation("ScheduleToUnits")
+  parent         Schedule?  @relation("ScheduleDataToParent", fields: [parentId], references: [id], onDelete: Cascade)
+  scheduleData   Schedule[] @relation("ScheduleDataToParent")
+  logData        Log[]      @relation("LogDataToSchedule")
+  createdBy      Member     @relation("SchedulesToMember", fields: [memberUsername], references: [username], onDelete: Cascade)
+}
+
+model Unit {
+  id        Int        @id @default(autoincrement())
+  name      String     @db.VarChar(10)
+  schedules Schedule[] @relation("ScheduleToUnits")
+  logs      Log[]      @relation("LogsToUnit")
+}
+
+model Log {
+  id             Int      @id @default(autoincrement())
+  value          Int
+  unitId         Int
+  scheduleId     Int
+  memberUsername String   @db.VarChar(50)
+  createdAt      DateTime @default(dbgenerated("NOW()")) @db.DateTime
+  updatedAt      DateTime @default(dbgenerated("NOW() ON UPDATE NOW()")) @db.DateTime
+  unit           Unit     @relation("LogsToUnit", fields: [unitId], references: [id])
+  schedule       Schedule @relation("LogDataToSchedule", fields: [scheduleId], references: [id], onDelete: Cascade)
+  createdBy      Member   @relation("LogsToMember", fields: [memberUsername], references: [username], onDelete: Cascade)
+}
+
+model BoardMaster {
+  id        Int     @id @default(autoincrement())
+  title     String  @db.VarChar(30)
+  isAnswerable String @db.VarChar(1)
+  isSecretable String @db.VarChar(1)
+  createdAt      DateTime @default(dbgenerated("NOW()")) @db.DateTime
+  updatedAt      DateTime @default(dbgenerated("NOW() ON UPDATE NOW()")) @db.DateTime
+  Boards    Board[] @relation("BoardsToBoardMaster")
+}
+
+model Board {
+  id        Int     @id @default(autoincrement())
+  boardMasterId Int 
+  title     String  @db.VarChar(30)
+  content   String  @db.VarChar(2000)
+  isSecret  String  @db.VarChar(1)
+  memberUsername  String  @db.VarChar(50)
+  createdAt      DateTime @default(dbgenerated("NOW()")) @db.DateTime
+  updatedAt      DateTime @default(dbgenerated("NOW() ON UPDATE NOW()")) @db.DateTime
+  boardMaster BoardMaster @relation("BoardsToBoardMaster", fields: [boardMasterId], references: [id], onDelete: Cascade)
+  boardAnswer BoardAnswer? @relation("BoardAnswerToBoard")
+  createdBy   Member  @relation("BoardsToMember", fields: [memberUsername], references: [username], onDelete: Cascade)
+}
+
+model BoardAnswer {
+  id        Int     @id @default(autoincrement())
+  boardId   Int     @unique
+  content   String  @db.VarChar(2000)
+  memberUsername  String  @db.VarChar(50)
+  createdAt      DateTime @default(dbgenerated("NOW()")) @db.DateTime
+  updatedAt      DateTime @default(dbgenerated("NOW() ON UPDATE NOW()")) @db.DateTime
+  board    Board    @relation("BoardAnswerToBoard", fields: [boardId], references: [id])
+  createdBy   Member  @relation("BoardAnswersToMember", fields: [memberUsername], references: [username])
+}
